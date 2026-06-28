@@ -8,7 +8,12 @@ import ro.sparktech24345.logicore.utils.PreciseTimer
 import ro.sparktech24345.logicore.utils.DriveTrain
 
 @Suppress("PROPERTY_HIDES_JAVA_FIELD")
-abstract class CoreOpMode(val dash: Boolean = true) : LinearOpMode(), CommandQueuer {
+abstract class CoreOpMode(val dash: Boolean = true, val type: OpModeType) : LinearOpMode(), CommandQueuer {
+    enum class OpModeType {
+        TELEOP,
+        AUTONOMOUS,
+        TESTING
+    }
     protected val hubs: List<LynxModule> by lazy { hardwareMap.getAll(LynxModule::class.java) }
     protected var debug = true
 
