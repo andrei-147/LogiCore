@@ -10,13 +10,13 @@ class CoreQueuer: CommandQueuer {
 
     private val pause = false
 
-    override fun <T : BaseCommand> queue(command: T): CommandQueuer {
-        queuer.add(command)
+    override fun queue(command: BaseCommand): CommandQueuer {
+        queuer += command
         return this
     }
 
-    override fun <T : BaseCommand> execute(command: T): CommandQueuer {
-        executor.add(command)
+    override fun execute(command: BaseCommand): CommandQueuer {
+        executor += command
         return this
     }
 

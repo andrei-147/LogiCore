@@ -2,80 +2,80 @@ package ro.sparktech24345.logicore.core
 
 import com.acmerobotics.dashboard.FtcDashboard
 import com.qualcomm.hardware.lynx.LynxModule
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode
+import com.qualcomm.hardware.lynx.LynxVoltageSensor
+import com.qualcomm.robotcore.eventloop.opmode.OpMode
+import com.qualcomm.robotcore.hardware.VoltageSensor
 import ro.sparktech24345.logicore.commands.BaseCommand
 import ro.sparktech24345.logicore.utils.PreciseTimer
-import ro.sparktech24345.logicore.utils.DriveTrain
 
 @Suppress("PROPERTY_HIDES_JAVA_FIELD")
-abstract class CoreOpMode(val dash: Boolean = true, val type: OpModeType) : LinearOpMode(), CommandQueuer {
+abstract class CoreOpMode(
+    val type: OpModeType,
+    val dash: Boolean = true,
+    var debug: Boolean = false
+) : OpMode(), CommandQueuer {
+    companion object {
+        var instance: CoreOpMode? = null
+    }
     enum class OpModeType {
         TELEOP,
         AUTONOMOUS,
         TESTING
     }
-    protected val hubs: List<LynxModule> by lazy { hardwareMap.getAll(LynxModule::class.java) }
-    protected var debug = true
-
-    private val queuer: CoreQueuer = CoreQueuer()
-
-    protected var telemetry: CoreTelemetry? = null
+    lateinit var hubs: List<LynxModule>
         private set
-    protected var useTelemetry = false
-        set(value) {
-            if (value && !field && telemetry == null) {
-                telemetry = CoreTelemetry(super.telemetry)
-                if (dash) telemetry?.addTelemetry(FtcDashboard.getInstance().telemetry)
-            }
-            field = value
-        }
-
-    protected var gamepad: CoreGamepad? = null
+    val queuer: CoreQueuer = CoreQueuer()
+    lateinit var telemetry: CoreTelemetry
         private set
-    protected var useGamepad = false
-        set(value) {
-            if (value && !field && gamepad == null) gamepad =
-                CoreGamepad(super.gamepad1, super.gamepad2)
-            field = value
-        }
-
-    protected var driveTrain: DriveTrain? = null
+    lateinit var gamepad: CoreGamepad
         private set
-    protected var useDriveTrain = false
-        set(value) {
-            if (value && !field && driveTrain == null) driveTrain =
-                DriveTrain(super.hardwareMap, gamepad1)
-            field = value
-        }
+    lateinit var voltageSensor: VoltageSensor
+        private set
 
-    private fun benchmarkIf(
-        cond: () -> Boolean = { true },
+
+    private fun benchmark(
         run: () -> Unit = {},
         name: String = "GENERIC_BENCHMARK_NAME"
     ) {
         if (!debug) return
-        if (!cond()) return
         val bm = PreciseTimer(name).start()
         run()
-        if (useTelemetry) bm.log(telemetry)
+        bm.log(telemetry)
         println("Timer: ${bm.name} -- ${bm.getTimer().get() ?: 0} ms")
     }
 
     private fun upd(fn: () -> Unit) {
-        benchmarkIf({ true }, {
+        benchmark({
             for (hub in hubs) hub.clearBulkCache()
-            benchmarkIf({ useGamepad }, gamepad!!::update, "GAMEPAD UPDATE")
-            benchmarkIf({ true }, fn, "MAIN UPDATE")
+            benchmark(gamepad::update, "GAMEPAD UPDATE")
+            benchmark(fn, "MAIN UPDATE")
         }, "LOOP ITERATION")
-        benchmarkIf({ useTelemetry }, telemetry!!::update, "TELEMETRY UPDATE")
+        benchmark(telemetry::update, "TELEMETRY UPDATE")
     }
 
-    final override fun runOpMode() {
+    final override fun init() {
+        telemetry = CoreTelemetry(super.telemetry)
+        if (dash) telemetry.addTelemetry(FtcDashboard.getInstance().telemetry)
+        gamepad = CoreGamepad(gamepad1, gamepad2)
+        hubs = hardwareMap.getAll(LynxModule::class.java)
+        voltageSensor = hardwareMap.get(VoltageSensor::class.java, "Control Hub")
         for (hub in hubs) hub.bulkCachingMode = LynxModule.BulkCachingMode.MANUAL
         upd(this::onInit)
-        while (!super.isStarted && !super<LinearOpMode>.isStopRequested) upd(this::onInitLoop)
+    }
+
+    final override fun init_loop() {
+        upd(this::onInitLoop)
+    }
+
+    final override fun start() {
         upd(this::onStart)
-        while (opModeIsActive()) upd(this::onLoop)
+    }
+
+    final override fun loop() {
+        upd(this::onLoop)
+    }
+
+    final override fun stop() {
         upd(this::onStop)
     }
 
@@ -86,11 +86,11 @@ abstract class CoreOpMode(val dash: Boolean = true, val type: OpModeType) : Line
     abstract fun onStop()
 
 
-    final override fun <T: BaseCommand> queue(command: T): CommandQueuer {
+    final override fun queue(command: BaseCommand): CommandQueuer {
         queuer.queue(command)
         return queuer
     }
-    final override fun <T: BaseCommand> execute(command: T): CommandQueuer {
+    final override fun execute(command: BaseCommand): CommandQueuer {
         queuer.execute(command)
         return queuer
     }
