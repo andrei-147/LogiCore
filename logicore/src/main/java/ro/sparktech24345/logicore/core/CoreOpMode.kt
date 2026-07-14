@@ -24,7 +24,10 @@ abstract class CoreOpMode(
     }
     lateinit var hubs: List<LynxModule>
         private set
-    val queuer: CoreQueuer = CoreQueuer()
+    private val queuer: CoreQueuer = CoreQueuer()
+    var pauseQueuer: Boolean
+        set(value) { queuer.pause = value }
+        get() = queuer.pause
     lateinit var telemetry: CoreTelemetry
         private set
     lateinit var gamepad: CoreGamepad

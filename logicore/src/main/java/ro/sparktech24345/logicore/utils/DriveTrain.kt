@@ -1,24 +1,24 @@
 package ro.sparktech24345.logicore.utils
 
 import com.qualcomm.robotcore.hardware.DcMotor
-import com.qualcomm.robotcore.hardware.DcMotorImplEx
+import com.qualcomm.robotcore.hardware.DcMotorEx
 import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.Gamepad
-import com.qualcomm.robotcore.hardware.HardwareMap
-import kotlin.text.get
+import dev.frozenmilk.dairy.cachinghardware.CachingDcMotorEx
+import ro.sparktech24345.logicore.core.CoreModule
+import ro.sparktech24345.logicore.core.CoreOpMode
 
-class DriveTrain(
-    val hardwareMap: HardwareMap,
+class DriveTrain (
     val gamepad: Gamepad,
     val rightFront: String = "frontright",
     val leftFront: String = "frontleft",
     val rightBack: String = "backright",
     val leftBack: String = "backleft",
-) {
-    private val rf: DcMotorImplEx = hardwareMap[rightFront] as DcMotorImplEx
-    private val lf: DcMotorImplEx = hardwareMap[leftFront]  as DcMotorImplEx
-    private val rb: DcMotorImplEx = hardwareMap[rightBack]  as DcMotorImplEx
-    private val lb: DcMotorImplEx = hardwareMap[leftBack]   as DcMotorImplEx
+) : CoreModule {
+    private lateinit var rf: CachingDcMotorEx
+    private lateinit var lf: CachingDcMotorEx
+    private lateinit var rb: CachingDcMotorEx
+    private lateinit var lb: CachingDcMotorEx
 
     var zeroPowerBehavior = DcMotor.ZeroPowerBehavior.BRAKE
         set(value) {
@@ -29,17 +29,23 @@ class DriveTrain(
             lb.zeroPowerBehavior = field
         }
 
-    init {
+    var directionFlip = false
+    var slowdownMultiplier = 1.0
+        set(value) { field = value.coerceIn(0.0..1.0) }
+
+    override fun init() {
+        val map = CoreOpMode.instance!!.hardwareMap
+        rf = CachingDcMotorEx(map[rightFront] as DcMotorEx)
+        lf = CachingDcMotorEx(map[leftFront]  as DcMotorEx)
+        rb = CachingDcMotorEx(map[rightBack]  as DcMotorEx)
+        lb = CachingDcMotorEx(map[leftBack]   as DcMotorEx)
+
         lf.direction = DcMotorSimple.Direction.REVERSE
         lb.direction = DcMotorSimple.Direction.REVERSE
         this.zeroPowerBehavior = DcMotor.ZeroPowerBehavior.BRAKE
     }
 
-    var directionFlip = false
-    var slowdownMultiplier = 1.0
-        set(value) { field = MathUtils.clip(value, 0.0, 1.0) }
-
-    fun update() {
+    override fun loop() {
         var vertical   = -gamepad.left_stick_y.toDouble()
         var horizontal = -gamepad.left_stick_x.toDouble()
         val pivot      =  gamepad.right_stick_x.toDouble()
@@ -68,7 +74,7 @@ class DriveTrain(
             lbp /= div
         }
 
-        rf.power = rfp * slowdownMultiplier
+        rf.power = (rfp * slowdownMultiplier)
         rb.power = rbp * slowdownMultiplier
         lf.power = lfp * slowdownMultiplier
         lb.power = lbp * slowdownMultiplier

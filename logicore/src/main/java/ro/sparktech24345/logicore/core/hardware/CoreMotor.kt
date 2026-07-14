@@ -1,20 +1,52 @@
 package ro.sparktech24345.logicore.core.hardware
 
 import com.qualcomm.robotcore.hardware.DcMotor
+import com.qualcomm.robotcore.hardware.DcMotorEx
 import com.qualcomm.robotcore.hardware.DcMotorImplEx
+import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.PIDFCoefficients
+import dev.frozenmilk.dairy.cachinghardware.CachingDcMotorEx
+import ro.sparktech24345.logicore.core.BaseStateSet
 import ro.sparktech24345.logicore.core.CoreModule
 import ro.sparktech24345.logicore.core.CoreOpMode
-import ro.sparktech24345.logicore.utils.MathUtils
+import ro.sparktech24345.logicore.core.StatesTrait
+import kotlin.math.floor
 
-class CoreMotor(val name: String) : CoreModule {
+class CoreMotor<T: BaseStateSet>(val name: String, states: T = BaseStateSet() as T) : CoreModule, StatesTrait<T>(states) {
 
-    lateinit var motor: DcMotorImplEx
-    var range = Pair(-1.0, 1.0)
-    var target: Double = 0.0
+    lateinit var motor: CachingDcMotorEx
+        private set
+
+    var unitsPerRev: Double = 1.0
+        private set
+
+    var power: Double
         set(value) {
-            field = value
+            runMode = MotorRunMode.POWER
+            motor.mode = motorRunMode()
+            motor.power = value
         }
+        get() = motor.power
+    val currentPosition: Double
+        get() = motor.currentPosition.toDouble()
+    var position: Double
+        set(value) {
+            runMode = MotorRunMode.POSITION
+            motor.mode = motorRunMode()
+            motor.targetPosition = floor(value).toInt()
+        }
+        get() = motor.targetPosition.toDouble()
+    var velocity: Double
+        set(value) {
+            runMode = MotorRunMode.VELOCITY
+            motor.mode = motorRunMode()
+            motor.velocity = value
+        }
+        get() = motor.velocity
+    var zeroPowerBehavior: DcMotor.ZeroPowerBehavior
+        set(value) { motor.zeroPowerBehavior = value }
+        get() = motor.zeroPowerBehavior
+
     enum class MotorRunMode {
         POWER,
         POSITION,
@@ -22,7 +54,8 @@ class CoreMotor(val name: String) : CoreModule {
         CUSTOM
     }
 
-    var customLoop: (DcMotorImplEx) -> Unit = {}
+    var customTarget: Double = 0.0
+    var customLoop: (DcMotorEx, Double) -> Unit = { motor, target -> }
         set(value) {
             field = value
             runMode = MotorRunMode.CUSTOM
@@ -31,29 +64,40 @@ class CoreMotor(val name: String) : CoreModule {
     var runMode = MotorRunMode.POWER
         set(value) {
             field = value
-            motor.mode = when (value) {
-                MotorRunMode.POWER -> DcMotor.RunMode.RUN_WITHOUT_ENCODER
-                MotorRunMode.POSITION -> DcMotor.RunMode.RUN_TO_POSITION
-                else -> DcMotor.RunMode.RUN_USING_ENCODER
-            }
+            motor.mode = motorRunMode(value)
+            motor.setPIDFCoefficients(motor.mode, pidf)
         }
 
-    fun encoder(enabled: Boolean = true) {
-        motor.mode = if (enabled) DcMotor.RunMode.RUN_USING_ENCODER else DcMotor.RunMode.RUN_WITHOUT_ENCODER
+    private fun motorRunMode(runMode: MotorRunMode = this.runMode): DcMotor.RunMode = when (runMode) {
+        MotorRunMode.POWER -> DcMotor.RunMode.RUN_WITHOUT_ENCODER
+        MotorRunMode.POSITION -> DcMotor.RunMode.RUN_TO_POSITION
+        else -> DcMotor.RunMode.RUN_USING_ENCODER
     }
 
-    fun pidf(p: Double, i: Double, d: Double, f: Double = 0.0) {
-        motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, PIDFCoefficients(p, i, d, f))
+    fun reverse(enabled: Boolean = true) {
+        motor.direction = if (enabled) DcMotorSimple.Direction.REVERSE else DcMotorSimple.Direction.FORWARD
     }
+
+    fun encoder(enabled: Boolean = true) {
+        motor.mode = motorRunMode()
+    }
+
+    var pidf: PIDFCoefficients = PIDFCoefficients(0.0, 0.0, 0.0, 0.0)
+        set(value) {
+            motor.setPIDFCoefficients(motorRunMode(), value)
+            field = value
+        }
 
     override fun init() {
-        motor = CoreOpMode.instance?.hardwareMap[name] as DcMotorImplEx
-        motor.velocity
+        motor = CachingDcMotorEx(CoreOpMode.instance!!.hardwareMap[name] as DcMotorEx)
+        unitsPerRev = (motor.dcMotorEx as DcMotorImplEx?)?.controller?.getMotorType(motor.portNumber)?.ticksPerRev ?: 1.0
+    }
+
+    override fun init_loop() {
+        this.loop()
     }
 
     override fun loop() {
-        if (runMode != MotorRunMode.CUSTOM) return
-        customLoop(motor)
+        if (runMode == MotorRunMode.CUSTOM) customLoop(motor, customTarget)
     }
-
 }

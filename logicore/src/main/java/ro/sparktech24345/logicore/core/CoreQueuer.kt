@@ -1,14 +1,12 @@
 package ro.sparktech24345.logicore.core
 
 import ro.sparktech24345.logicore.commands.BaseCommand
-import java.util.ArrayDeque
-import java.util.Queue
 
 class CoreQueuer: CommandQueuer {
-    val queuer: Queue<BaseCommand> = ArrayDeque()
-    val executor: ArrayList<BaseCommand> = ArrayList()
+    val queuer: ArrayDeque<BaseCommand> = ArrayDeque()
+    val executor: MutableList<BaseCommand> = mutableListOf()
 
-    private val pause = false
+    var pause = false
 
     override fun queue(command: BaseCommand): CommandQueuer {
         queuer += command
