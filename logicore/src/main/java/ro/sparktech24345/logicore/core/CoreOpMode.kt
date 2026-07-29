@@ -5,6 +5,7 @@ import com.qualcomm.hardware.lynx.LynxModule
 import com.qualcomm.hardware.lynx.LynxVoltageSensor
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import com.qualcomm.robotcore.hardware.VoltageSensor
+import org.firstinspires.ftc.robotcore.external.Telemetry
 import ro.sparktech24345.logicore.commands.BaseCommand
 import ro.sparktech24345.logicore.utils.PreciseTimer
 
@@ -13,23 +14,44 @@ abstract class CoreOpMode(
     val type: OpModeType,
     val dash: Boolean = true,
     var debug: Boolean = false
-) : OpMode(), CommandQueuer {
+) : OpMode(), CommandQueuer by queuer, Telemetry by telemetry {
+
+    enum class GameStage {
+        INIT,
+        INIT_LOOP,
+        START,
+        LOOP,
+        STOP,
+    }
+
+    override fun clear() = queuer.clear()
+    override fun update(): Boolean = CoreOpMode.telemetry.update()
+
     companion object {
         var instance: CoreOpMode? = null
+        val queuer: CoreQueuer = CoreQueuer()
+        var period = GameStage.INIT
+            private set
+        private var modules = ModuleHandler()
+        private var internalModules = ModuleHandler()
+        val telemetry = CoreTelemetry()
+
     }
+
+    fun <T : CoreModule> install(module: T, priority: Float = 1.0f) = modules.install(module, priority)
+
     enum class OpModeType {
         TELEOP,
         AUTONOMOUS,
         TESTING
     }
-    lateinit var hubs: List<LynxModule>
-        private set
-    private val queuer: CoreQueuer = CoreQueuer()
+
+    val hubs = CoreHubController()
     var pauseQueuer: Boolean
-        set(value) { queuer.pause = value }
+        set(value) {
+            queuer.pause = value
+        }
         get() = queuer.pause
-    lateinit var telemetry: CoreTelemetry
-        private set
     lateinit var gamepad: CoreGamepad
         private set
     lateinit var voltageSensor: VoltageSensor
@@ -43,27 +65,36 @@ abstract class CoreOpMode(
         if (!debug) return
         val bm = PreciseTimer(name).start()
         run()
-        bm.log(telemetry)
+        bm.log(CoreOpMode.telemetry)
         println("Timer: ${bm.name} -- ${bm.getTimer().get() ?: 0} ms")
     }
 
+    private fun updateAccordingly(mod: CoreModule) {
+        when (period) {
+            GameStage.INIT -> mod.init()
+            GameStage.INIT_LOOP -> mod.init_loop()
+            GameStage.START -> mod.start()
+            GameStage.LOOP -> mod.loop()
+            GameStage.STOP -> mod.stop()
+        }
+    }
+
     private fun upd(fn: () -> Unit) {
-        benchmark({
-            for (hub in hubs) hub.clearBulkCache()
-            benchmark(gamepad::update, "GAMEPAD UPDATE")
-            benchmark(fn, "MAIN UPDATE")
-        }, "LOOP ITERATION")
-        benchmark(telemetry::update, "TELEMETRY UPDATE")
+        updateAccordingly(internalModules)
+        fn()
+        updateAccordingly(modules)
     }
 
     final override fun init() {
-        telemetry = CoreTelemetry(super.telemetry)
-        if (dash) telemetry.addTelemetry(FtcDashboard.getInstance().telemetry)
+        CoreOpMode.telemetry.addTelemetry(super.telemetry)
+        if (dash) CoreOpMode.telemetry.addTelemetry(FtcDashboard.getInstance().telemetry)
+        internalModules.install(CoreOpMode.telemetry)
         gamepad = CoreGamepad(gamepad1, gamepad2)
-        hubs = hardwareMap.getAll(LynxModule::class.java)
+        internalModules.install(gamepad)
         voltageSensor = hardwareMap.get(VoltageSensor::class.java, "Control Hub")
-        for (hub in hubs) hub.bulkCachingMode = LynxModule.BulkCachingMode.MANUAL
+        internalModules.install(hubs)
         upd(this::onInit)
+        period = GameStage.INIT_LOOP
     }
 
     final override fun init_loop() {
@@ -71,7 +102,9 @@ abstract class CoreOpMode(
     }
 
     final override fun start() {
+        period = GameStage.START
         upd(this::onStart)
+        period = GameStage.LOOP
     }
 
     final override fun loop() {
@@ -79,6 +112,7 @@ abstract class CoreOpMode(
     }
 
     final override fun stop() {
+        period = GameStage.STOP
         upd(this::onStop)
     }
 
@@ -87,22 +121,4 @@ abstract class CoreOpMode(
     abstract fun onStart()
     abstract fun onLoop()
     abstract fun onStop()
-
-
-    final override fun queue(command: BaseCommand): CommandQueuer {
-        queuer.queue(command)
-        return queuer
-    }
-    final override fun execute(command: BaseCommand): CommandQueuer {
-        queuer.execute(command)
-        return queuer
-    }
-    final override fun clear(): CommandQueuer {
-        queuer.clear()
-        return queuer
-    }
-    final override fun update(): CommandQueuer {
-        queuer.update()
-        return queuer
-    }
 }

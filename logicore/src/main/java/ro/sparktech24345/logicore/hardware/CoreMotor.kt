@@ -1,4 +1,4 @@
-package ro.sparktech24345.logicore.core.hardware
+package ro.sparktech24345.logicore.hardware
 
 import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorEx
@@ -6,13 +6,14 @@ import com.qualcomm.robotcore.hardware.DcMotorImplEx
 import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.PIDFCoefficients
 import dev.frozenmilk.dairy.cachinghardware.CachingDcMotorEx
-import ro.sparktech24345.logicore.core.BaseStateSet
+import ro.sparktech24345.logicore.states.BaseStateSet
 import ro.sparktech24345.logicore.core.CoreModule
 import ro.sparktech24345.logicore.core.CoreOpMode
-import ro.sparktech24345.logicore.core.StatesTrait
+import ro.sparktech24345.logicore.states.HasStates
 import kotlin.math.floor
 
-class CoreMotor<T: BaseStateSet>(val name: String, states: T = BaseStateSet() as T) : CoreModule, StatesTrait<T>(states) {
+class CoreMotor<T : BaseStateSet>(val name: String, states: T = BaseStateSet() as T) : CoreModule,
+    HasStates<T>(states) {
 
     lateinit var motor: CachingDcMotorEx
         private set
@@ -44,7 +45,9 @@ class CoreMotor<T: BaseStateSet>(val name: String, states: T = BaseStateSet() as
         }
         get() = motor.velocity
     var zeroPowerBehavior: DcMotor.ZeroPowerBehavior
-        set(value) { motor.zeroPowerBehavior = value }
+        set(value) {
+            motor.zeroPowerBehavior = value
+        }
         get() = motor.zeroPowerBehavior
 
     enum class MotorRunMode {
@@ -90,7 +93,8 @@ class CoreMotor<T: BaseStateSet>(val name: String, states: T = BaseStateSet() as
 
     override fun init() {
         motor = CachingDcMotorEx(CoreOpMode.instance!!.hardwareMap[name] as DcMotorEx)
-        unitsPerRev = (motor.dcMotorEx as DcMotorImplEx?)?.controller?.getMotorType(motor.portNumber)?.ticksPerRev ?: 1.0
+        unitsPerRev =
+            (motor.dcMotorEx as DcMotorImplEx?)?.controller?.getMotorType(motor.portNumber)?.ticksPerRev ?: 1.0
     }
 
     override fun init_loop() {

@@ -1,4 +1,4 @@
-package ro.sparktech24345.logicore.core.hardware
+package ro.sparktech24345.logicore.hardware
 
 import com.qualcomm.robotcore.hardware.ColorSensor
 import ro.sparktech24345.logicore.core.CoreModule
@@ -27,7 +27,7 @@ class CoreColorSensor(val name: String, private var tickRate: UInt = 1u) : CoreM
         color = sensor.argb().toUInt()
         a = (color shr 24) and 0xFFu
         r = (color shr 16) and 0xFFu
-        g = (color shr  8) and 0xFFu
-        b =  color         and 0xFFu
+        g = (color shr 8) and 0xFFu
+        b = color and 0xFFu
     }
 }
