@@ -29,7 +29,7 @@ repositories {
 
 dependencies {
     // (2) Add this line also
-    implementation 'com.github.andrei-147:LogiCore:1.0.0'
+    implementation 'com.github.andrei-147:LogiCore:1.0.1'
 
 
     implementation 'org.firstinspires.ftc:Inspection:11.2.1' // Basic FTC dependencies
