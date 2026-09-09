@@ -56,15 +56,16 @@ dependencies {
     implementation 'org.solverslib:photon:0.3.5'
 }
 
-publishing {
-    publications {
-        release(MavenPublication) {
-            groupId = 'ro.sparktech24345'
-            artifactId = 'logicore'
-            version = '1.0.0'
 
-            afterEvaluate {
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
                 from components.release
+
+                groupId = 'com.github.andrei-147'
+                artifactId = 'LogiCore'
+                version = project.version 
             }
         }
     }
