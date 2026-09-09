@@ -1,5 +1,5 @@
 # LogiCore
-[![](https://jitpack.io/v/andrei-147/FTC-LogiCore.svg)](https://jitpack.io/#andrei-147/FTC-LogiCore)
+[![](https://www.jitpack.io/v/andrei-147/LogiCore.svg)](https://www.jitpack.io/#andrei-147/LogiCore)
 
 Kotlin/Java library for FTC robotics programming that provides clean architecture and abstractions for robot control.
 **Made by team Sparktech #24345**
